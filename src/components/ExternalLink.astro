@@ -1,0 +1,47 @@
+---
+import { getDb } from '../lib/db';
+import { t } from '../i18n/utils';
+
+interface Props {
+  href: string;
+  locale?: string;
+}
+
+const { href, locale = 'en' } = Astro.props;
+
+let clicks = 0;
+try {
+  const db = getDb();
+  const row = db.prepare('SELECT clicks FROM link_clicks WHERE url = ?').get(href) as { clicks: number } | undefined;
+  clicks = row?.clicks ?? 0;
+} catch {
+  // DB not available at build time; use 0
+}
+---
+<span class="external-link-wrap">
+  <a
+    href={href}
+    target="_blank"
+    rel="noopener noreferrer"
+    class="external-link"
+    data-track-url={href}
+  ><slot /></a>{clicks > 0 && <span class="click-badge" data-url={href} data-initial={clicks}>{clicks}</span>}{clicks === 0 && <span class="click-badge" data-url={href} data-initial={0} style="display:none"></span>}
+</span>
+
+<style>
+  .external-link-wrap { display: inline; }
+  .click-badge {
+    display: inline-block;
+    font-size: 0.7em;
+    font-weight: 500;
+    color: #555;
+    background: #e8e8e4;
+    border-radius: 99px;
+    padding: 0.05em 0.5em;
+    margin-left: 0.3em;
+    vertical-align: middle;
+    white-space: nowrap;
+    line-height: 1.6;
+    letter-spacing: 0;
+  }
+</style>

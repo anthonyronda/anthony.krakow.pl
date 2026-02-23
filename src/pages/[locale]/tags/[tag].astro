@@ -1,0 +1,46 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../../../layouts/Layout.astro';
+import { t, locales } from '../../../i18n/utils';
+import type { Locale } from '../../../i18n/utils';
+
+export async function getStaticPaths() {
+  const paths = [];
+  for (const locale of locales) {
+    const notes = await getCollection(locale);
+    const allTags = new Set(notes.flatMap((n) => n.data.tags));
+    for (const tag of allTags) {
+      paths.push({ params: { locale, tag } });
+    }
+  }
+  return paths;
+}
+
+const { locale, tag } = Astro.params as { locale: Locale; tag: string };
+
+const notes = (await getCollection(locale))
+  .filter((n) => !n.data.draft && n.data.tags.includes(tag))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+---
+<Layout title={t('tags.title', locale, { tag })} locale={locale}>
+  <h1>{t('tags.notes', locale)}: <em>{tag}</em></h1>
+  {notes.length === 0 && <p class="muted">No notes with this tag.</p>}
+  <ul class="note-list">
+    {notes.map((note) => (
+      <li>
+        <a href={`/${locale}/${note.slug}`}>{note.data.title}</a>
+        <span class="muted"> — {note.data.pubDate.toLocaleDateString()}</span>
+      </li>
+    ))}
+  </ul>
+  <nav style="margin-top:2rem;">
+    <a href={`/${locale}`}>{t('note.backToHome', locale)}</a>
+  </nav>
+</Layout>
+
+<style>
+  .note-list { list-style: none; margin-top: 1rem; }
+  .note-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--color-border); }
+  .note-list a { font-weight: 600; text-decoration: none; }
+  .note-list a:hover { text-decoration: underline; }
+</style>

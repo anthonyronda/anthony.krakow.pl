@@ -1,0 +1,140 @@
+---
+import { validateCookie } from '../../lib/auth';
+import { getDb } from '../../lib/db';
+
+if (!validateCookie(Astro.request)) {
+  return Astro.redirect('/admin/login', 302);
+}
+
+type Comment = {
+  id: number;
+  page_slug: string;
+  locale: string;
+  anchor_text: string;
+  author_name: string;
+  author_email: string;
+  body: string;
+  status: string;
+  created_at: string;
+};
+
+// Handle form actions (approve / reject)
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const id = Number(form.get('id'));
+  const action = form.get('action')?.toString();
+  if (id > 0 && (action === 'approved' || action === 'rejected')) {
+    try {
+      const db = getDb();
+      db.prepare('UPDATE comments SET status = ? WHERE id = ?').run(action, id);
+    } catch (err) {
+      console.error('admin action error', err);
+    }
+  }
+  return Astro.redirect('/admin/comments', 302);
+}
+
+let pending: Comment[] = [];
+let approved: Comment[] = [];
+try {
+  const db = getDb();
+  pending = db.prepare(`SELECT * FROM comments WHERE status = 'pending' ORDER BY created_at ASC`).all() as Comment[];
+  approved = db.prepare(`SELECT * FROM comments WHERE status = 'approved' ORDER BY created_at DESC LIMIT 20`).all() as Comment[];
+} catch (err) {
+  console.error('admin load error', err);
+}
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Comment Moderation</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: system-ui; background: #fafaf8; color: #1a1a1a; line-height: 1.6; }
+      .container { max-width: 800px; margin: 2rem auto; padding: 0 1.5rem; }
+      h1 { font-size: 1.5rem; margin-bottom: 2rem; }
+      h2 { font-size: 1.1rem; margin: 2rem 0 1rem; border-bottom: 1px solid #e2e2e2; padding-bottom: 0.5rem; }
+      .comment-card {
+        border: 1px solid #e2e2e2;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background: #fff;
+      }
+      .comment-meta { font-size: 0.8rem; color: #666; margin-bottom: 0.5rem; }
+      .comment-anchor { font-style: italic; color: #555; font-size: 0.85rem; margin-bottom: 0.5rem; border-left: 3px solid #ccc; padding-left: 0.75rem; }
+      .comment-body { margin-bottom: 0.75rem; }
+      .actions { display: flex; gap: 0.5rem; }
+      .btn {
+        padding: 0.35rem 0.9rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .btn-approve { background: #22c55e; color: #fff; }
+      .btn-reject  { background: #ef4444; color: #fff; }
+      .empty { color: #888; font-style: italic; }
+      .badge {
+        display: inline-block;
+        font-size: 0.75rem;
+        padding: 0.1em 0.5em;
+        border-radius: 99px;
+        background: #e8e8e8;
+        margin-left: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Comment Moderation</h1>
+
+      <h2>Pending <span class="badge">{pending.length}</span></h2>
+      {pending.length === 0
+        ? <p class="empty">No pending comments.</p>
+        : pending.map((c) => (
+          <div class="comment-card">
+            <div class="comment-meta">
+              <strong>{c.author_name}</strong> &lt;{c.author_email}&gt; ·
+              <a href={`/${c.locale}/${c.page_slug}`}>/{c.locale}/{c.page_slug}</a> ·
+              {new Date(c.created_at).toLocaleString()}
+            </div>
+            <div class="comment-anchor">"{c.anchor_text}"</div>
+            <div class="comment-body">{c.body}</div>
+            <div class="actions">
+              <form method="POST">
+                <input type="hidden" name="id" value={c.id} />
+                <input type="hidden" name="action" value="approved" />
+                <button class="btn btn-approve" type="submit">Approve</button>
+              </form>
+              <form method="POST">
+                <input type="hidden" name="id" value={c.id} />
+                <input type="hidden" name="action" value="rejected" />
+                <button class="btn btn-reject" type="submit">Reject</button>
+              </form>
+            </div>
+          </div>
+        ))
+      }
+
+      <h2>Recently Approved</h2>
+      {approved.length === 0
+        ? <p class="empty">None yet.</p>
+        : approved.map((c) => (
+          <div class="comment-card" style="opacity:0.75;">
+            <div class="comment-meta">
+              <strong>{c.author_name}</strong> ·
+              <a href={`/${c.locale}/${c.page_slug}`}>/{c.locale}/{c.page_slug}</a> ·
+              {new Date(c.created_at).toLocaleString()}
+            </div>
+            <div class="comment-anchor">"{c.anchor_text}"</div>
+            <div class="comment-body">{c.body}</div>
+          </div>
+        ))
+      }
+    </div>
+  </body>
+</html>

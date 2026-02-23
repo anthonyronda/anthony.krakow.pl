@@ -1,0 +1,110 @@
+---
+import { getCollection, getEntry } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import CommentBubble from '../../components/CommentBubble.astro';
+import { t, locales } from '../../i18n/utils';
+import { getDb } from '../../lib/db';
+import type { Locale } from '../../i18n/utils';
+
+export async function getStaticPaths() {
+  const paths = [];
+  for (const locale of locales) {
+    const notes = await getCollection(locale);
+    for (const note of notes) {
+      paths.push({ params: { locale, slug: note.slug } });
+    }
+  }
+  return paths;
+}
+
+const { locale, slug } = Astro.params as { locale: Locale; slug: string };
+
+const entry = await getEntry(locale, slug);
+if (!entry) {
+  return Astro.redirect(`/${locale}`, 302);
+}
+
+const { Content, remarkPluginFrontmatter } = await entry.render();
+const readingTime = remarkPluginFrontmatter?.readingTime as string | undefined;
+
+// Load approved comments for this page
+let approvedComments: Array<{
+  id: number;
+  anchor_text: string;
+  author_name: string;
+  body: string;
+  created_at: string;
+}> = [];
+
+try {
+  const db = getDb();
+  approvedComments = db
+    .prepare(
+      `SELECT id, anchor_text, author_name, body, created_at
+       FROM comments
+       WHERE page_slug = ? AND locale = ? AND status = 'approved'
+       ORDER BY created_at ASC`
+    )
+    .all(slug, locale) as typeof approvedComments;
+} catch {
+  // DB unavailable
+}
+---
+<Layout title={entry.data.title} description={entry.data.description} locale={locale} slug={slug}>
+  <article id="article-content">
+    <header style="margin-bottom:1.5rem;">
+      <h1>{entry.data.title}</h1>
+      <p class="muted">
+        {t('note.publishedOn', locale)} {entry.data.pubDate.toLocaleDateString()}
+        {readingTime && <span> · {readingTime} {t('note.readingTime', locale)}</span>}
+      </p>
+      {entry.data.tags.length > 0 && (
+        <div style="margin-top:0.5rem;">
+          {entry.data.tags.map((tag) => (
+            <a href={`/${locale}/tags/${tag}`} class="tag">{tag}</a>
+          ))}
+        </div>
+      )}
+    </header>
+
+    <div class="prose">
+      <Content />
+    </div>
+  </article>
+
+  {approvedComments.length > 0 && (
+    <section style="margin-top:3rem;">
+      <h2>{t('comment.heading', locale)}</h2>
+      {approvedComments.map((c) => (
+        <CommentBubble
+          id={c.id}
+          anchorText={c.anchor_text}
+          authorName={c.author_name}
+          body={c.body}
+          createdAt={c.created_at}
+        />
+      ))}
+    </section>
+  )}
+
+  <nav style="margin-top:3rem; border-top:1px solid var(--color-border); padding-top:1rem;">
+    <a href={`/${locale}`}>{t('note.backToHome', locale)}</a>
+  </nav>
+</Layout>
+
+<script src="/scripts/comment-widget.js" is:inline></script>
+<script src="/scripts/link-counter.js" is:inline></script>
+
+<style>
+  .prose { line-height: 1.8; }
+  .prose h2, .prose h3 { margin-top: 2em; }
+  .prose ul, .prose ol { padding-left: 1.5em; margin-bottom: 1em; }
+  .prose li { margin-bottom: 0.25em; }
+  .prose blockquote {
+    border-left: 3px solid #ccc;
+    padding-left: 1em;
+    color: #555;
+    font-style: italic;
+    margin: 1em 0;
+  }
+</style>

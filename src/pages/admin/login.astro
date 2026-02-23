@@ -1,0 +1,40 @@
+---
+// Simple login page to set admin_session cookie
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const token = form.get('token')?.toString() ?? '';
+  const adminToken = process.env.ADMIN_TOKEN ?? '';
+  if (adminToken && token === adminToken) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': '/admin/comments',
+        'Set-Cookie': `admin_session=${token}; HttpOnly; Path=/admin; SameSite=Strict; Max-Age=86400`,
+      },
+    });
+  }
+  // Bad token — fall through to show form with error
+}
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin Login</title>
+    <style>
+      body { font-family: system-ui; background: #fafaf8; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+      form { background: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); width: min(360px, 90vw); }
+      h1 { font-size: 1.25rem; margin-bottom: 1.5rem; }
+      input { width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; margin-bottom: 1rem; }
+      button { width: 100%; padding: 0.6rem; background: #2563eb; color: #fff; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <form method="POST">
+      <h1>Admin Login</h1>
+      <input type="password" name="token" placeholder="Admin token" required autofocus />
+      <button type="submit">Log in</button>
+    </form>
+  </body>
+</html>
