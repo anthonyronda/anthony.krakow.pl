@@ -8,7 +8,7 @@ export async function getStaticPaths() {
   const paths = [];
   for (const locale of locales) {
     const notes = await getCollection(locale);
-    const allTags = new Set(notes.flatMap((n) => n.data.tags));
+    const allTags = new Set(notes.filter((n) => import.meta.env.DEV || !n.data.tags.includes('dev-only')).flatMap((n) => n.data.tags));
     for (const tag of allTags) {
       paths.push({ params: { locale, tag } });
     }
@@ -19,7 +19,7 @@ export async function getStaticPaths() {
 const { locale, tag } = Astro.params as { locale: Locale; tag: string };
 
 const notes = (await getCollection(locale))
-  .filter((n) => !n.data.draft && n.data.tags.includes(tag))
+  .filter((n) => !n.data.draft && (import.meta.env.DEV || !n.data.tags.includes('dev-only')) && n.data.tags.includes(tag))
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 ---
 <Layout title={t('tags.title', locale, { tag })} locale={locale}>

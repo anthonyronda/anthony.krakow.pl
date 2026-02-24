@@ -2,7 +2,7 @@
 title: "Hello, Digital Garden"
 description: "An introduction to this space and how I think about networked notes."
 pubDate: 2026-02-23
-tags: ["meta", "writing"]
+tags: ["meta", "writing", "dev-only"]
 ---
 
 Welcome to my digital garden — a place that grows rather than launches.

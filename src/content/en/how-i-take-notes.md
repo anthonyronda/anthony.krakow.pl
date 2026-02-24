@@ -2,7 +2,7 @@
 title: "How I Take Notes"
 description: "My current system for capturing, processing, and connecting ideas."
 pubDate: 2026-02-20
-tags: ["productivity", "writing", "tools"]
+tags: ["productivity", "writing", "tools", "dev-only"]
 ---
 
 Note-taking is deeply personal. What works for one person is friction for another. After years of switching tools, here is what I've landed on.

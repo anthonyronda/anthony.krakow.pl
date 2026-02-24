@@ -2,7 +2,7 @@
 title: "Witaj w cyfrowym ogrodzie"
 description: "Wprowadzenie do tej przestrzeni i tego, jak myślę o połączonych notatkach."
 pubDate: 2026-02-23
-tags: ["meta", "pisanie"]
+tags: ["meta", "pisanie", "draft", "dev-only"]
 ---
 
 Witaj w moim cyfrowym ogrodzie — miejscu, które rośnie, zamiast być „uruchamiane".

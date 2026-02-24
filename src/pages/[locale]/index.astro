@@ -11,7 +11,7 @@ export function getStaticPaths() {
 const { locale } = Astro.params as { locale: Locale };
 
 const notes = (await getCollection(locale))
-  .filter((n) => !n.data.draft)
+  .filter((n) => !n.data.draft && (import.meta.env.DEV || !n.data.tags.includes('dev-only')))
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 ---
 <Layout title={undefined} locale={locale}>

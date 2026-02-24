@@ -2,7 +2,7 @@
 title: "Jak robię notatki"
 description: "Mój obecny system przechwytywania, przetwarzania i łączenia pomysłów."
 pubDate: 2026-02-20
-tags: ["produktywność", "pisanie", "narzędzia"]
+tags: ["produktywność", "pisanie", "narzędzia", "dev-only"]
 ---
 
 Robienie notatek to sprawa bardzo osobista. Co działa dla jednej osoby, dla innej jest przeszkodą. Po latach zmieniania narzędzi oto gdzie wylądowałem.
