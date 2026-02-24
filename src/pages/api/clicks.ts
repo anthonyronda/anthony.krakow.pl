@@ -1,6 +1,28 @@
 import type { APIRoute } from 'astro';
 import { getDb } from '../../lib/db';
 
+export const GET: APIRoute = ({ url }) => {
+  const param = url.searchParams.get('urls');
+  if (!param) {
+    return new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+  const urls = param.split(',').filter((u) => u.startsWith('http'));
+  if (urls.length === 0) {
+    return new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+  try {
+    const db = getDb();
+    const placeholders = urls.map(() => '?').join(',');
+    const rows = db.prepare(`SELECT url, clicks FROM link_clicks WHERE url IN (${placeholders})`).all(...urls) as { url: string; clicks: number }[];
+    const result: Record<string, number> = {};
+    for (const row of rows) result[row.url] = row.clicks;
+    return new Response(JSON.stringify(result), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  } catch (err) {
+    console.error('clicks GET error', err);
+    return new Response(JSON.stringify({}), { status: 500 });
+  }
+};
+
 export const POST: APIRoute = async ({ request }) => {
   let url: string;
   try {

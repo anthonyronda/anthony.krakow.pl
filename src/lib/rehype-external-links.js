@@ -42,23 +42,11 @@ export function rehypeExternalLinks() {
         'data-track-url': href,
       };
 
-      // Wrap in <span class="external-link-wrap"> with a badge sibling
-      const badge = {
-        type: 'element',
-        tagName: 'span',
-        properties: {
-          class: 'click-badge',
-          'data-url': href,
-          'data-initial': '0',
-        },
-        children: [],
-      };
-
       const wrapper = {
         type: 'element',
         tagName: 'span',
         properties: { class: 'external-link-wrap' },
-        children: [node, badge],
+        children: [node],
       };
 
       parent.children.splice(index, 1, wrapper);
