@@ -1,5 +1,7 @@
 ---
 import { t } from '../i18n/utils';
+import { getEntry } from 'astro:content';
+import type { Locale } from '../i18n/utils';
 
 interface Props {
   title?: string;
@@ -11,9 +13,12 @@ interface Props {
 const { title, description, locale, slug = '' } = Astro.props;
 const site = Astro.site?.toString().replace(/\/$/, '') ?? '';
 
-const altLocale = locale === 'en' ? 'pl' : 'en';
+const altLocale = (locale === 'en' ? 'pl' : 'en') as Locale;
 const canonicalUrl = `${site}/${locale}/${slug}`.replace(/\/$/, '');
 const altUrl = `${site}/${altLocale}/${slug}`.replace(/\/$/, '');
+
+const altExists = slug ? !!(await getEntry(altLocale, slug)) : false;
+const altHref = altExists ? `/${altLocale}/${slug}` : `/${altLocale}`;
 
 const pageTitle = title ? `${title} — ${t('site.title', locale)}` : t('site.title', locale);
 const pageDesc = description ?? t('site.description', locale);
@@ -121,7 +126,7 @@ const pageDesc = description ?? t('site.description', locale);
       <a href={`/${locale}`} style="font-weight:700;text-decoration:none;color:inherit;">{t('site.title', locale)}</a>
       <nav>
         <a href={`/${locale}`}>{t('nav.home', locale)}</a>
-        <a href={`/${altLocale}`}>{t('lang.switch', locale)}</a>
+        <a href={altHref}>{t('lang.switch', locale)}</a>
       </nav>
     </header>
     <main>
