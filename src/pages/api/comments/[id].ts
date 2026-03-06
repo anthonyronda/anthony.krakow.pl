@@ -1,9 +1,8 @@
 import type { APIRoute } from 'astro';
 import { getDb } from '../../../lib/db';
-import { validateToken } from '../../../lib/auth';
 
-export const PATCH: APIRoute = async ({ request, params }) => {
-  if (!validateToken(request)) {
+export const PATCH: APIRoute = async ({ request, params, locals }) => {
+  if (!locals.isAdmin) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
 

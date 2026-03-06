@@ -9,7 +9,7 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
   }
 
-  const { page_slug, locale, anchor_text, range_start, range_end, author_name, author_email, body: commentBody, honeypot } = body as Record<string, unknown>;
+  const { page_slug, locale, anchor_text, range_start, range_end, context_html, author_name, author_email, body: commentBody, honeypot } = body as Record<string, unknown>;
 
   // Honeypot spam check
   if (honeypot) {
@@ -29,12 +29,15 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: 'Invalid fields' }), { status: 400 });
   }
 
+  // context_html is optional — defaults to empty string for legacy clients
+  const contextHtml = typeof context_html === 'string' ? context_html : '';
+
   try {
     const db = getDb();
     db.prepare(
-      `INSERT INTO comments (page_slug, locale, anchor_text, range_start, range_end, author_name, author_email, body)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(page_slug, locale, anchor_text, range_start, range_end, author_name, author_email, commentBody);
+      `INSERT INTO comments (page_slug, locale, anchor_text, range_start, range_end, context_html, author_name, author_email, body)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(page_slug, locale, anchor_text, range_start, range_end, contextHtml, author_name, author_email, commentBody);
     return new Response(JSON.stringify({ ok: true }), { status: 201, headers: { 'Content-Type': 'application/json' } });
   } catch (err) {
     console.error('comments POST error', err);

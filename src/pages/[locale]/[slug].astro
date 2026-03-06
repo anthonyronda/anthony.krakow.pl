@@ -2,6 +2,7 @@
 import { getCollection, getEntry } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import CommentBubble from '../../components/CommentBubble.astro';
+import InlineComments from '../../components/InlineComments.astro';
 import { t, locales } from '../../i18n/utils';
 import { getDb } from '../../lib/db';
 import type { Locale } from '../../i18n/utils';
@@ -27,25 +28,50 @@ if (!entry) {
 const { Content, remarkPluginFrontmatter } = await entry.render();
 const readingTime = remarkPluginFrontmatter?.readingTime as string | undefined;
 
-// Load approved comments for this page
+const isAdmin = Astro.locals.isAdmin;
+
+// Load approved comments for all visitors
 let approvedComments: Array<{
   id: number;
   anchor_text: string;
   author_name: string;
   body: string;
   created_at: string;
+  context_html: string;
+}> = [];
+
+// Load pending comments only for admin
+let pendingComments: Array<{
+  id: number;
+  anchor_text: string;
+  author_name: string;
+  body: string;
+  range_start: number;
+  range_end: number;
+  context_html: string;
 }> = [];
 
 try {
   const db = getDb();
   approvedComments = db
     .prepare(
-      `SELECT id, anchor_text, author_name, body, created_at
+      `SELECT id, anchor_text, author_name, body, created_at, context_html
        FROM comments
        WHERE page_slug = ? AND locale = ? AND status = 'approved'
        ORDER BY created_at ASC`
     )
     .all(slug, locale) as typeof approvedComments;
+
+  if (isAdmin) {
+    pendingComments = db
+      .prepare(
+        `SELECT id, anchor_text, author_name, body, range_start, range_end, context_html
+         FROM comments
+         WHERE page_slug = ? AND locale = ? AND status = 'pending'
+         ORDER BY created_at ASC`
+      )
+      .all(slug, locale) as typeof pendingComments;
+  }
 } catch {
   // DB unavailable
 }
@@ -82,9 +108,21 @@ try {
           authorName={c.author_name}
           body={c.body}
           createdAt={c.created_at}
+          contextHtml={c.context_html}
         />
       ))}
     </section>
+  )}
+
+  {isAdmin && pendingComments.length > 0 && (
+    <InlineComments comments={pendingComments} slug={slug} locale={locale} />
+  )}
+
+  {isAdmin && (
+    <div style="margin-top:2rem;padding:0.75rem 1rem;background:#fef9ec;border:1px solid #f59e0b;border-radius:6px;font-size:0.85rem;">
+      Admin session active &mdash;
+      <button id="admin-logout-btn" style="background:none;border:none;color:#2563eb;cursor:pointer;font-size:0.85rem;padding:0;text-decoration:underline;">Log out</button>
+    </div>
   )}
 
   <nav style="margin-top:3rem; border-top:1px solid var(--color-border); padding-top:1rem;">
@@ -92,8 +130,20 @@ try {
   </nav>
 </Layout>
 
+<script src="/scripts/visit-tracker.js" is:inline></script>
 <script src="/scripts/comment-widget.js" is:inline></script>
+<script src="/scripts/bookmark-widget.js" is:inline></script>
 <script src="/scripts/link-counter.js" is:inline></script>
+
+<script>
+  const logoutBtn = document.getElementById('admin-logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      await fetch('/api/auth/sign-out', { method: 'POST', credentials: 'same-origin' });
+      window.location.href = '/';
+    });
+  }
+</script>
 
 <style>
   .prose { line-height: 1.8; }

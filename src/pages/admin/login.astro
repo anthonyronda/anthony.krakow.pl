@@ -1,20 +1,6 @@
 ---
-// Simple login page to set admin_session cookie
-if (Astro.request.method === 'POST') {
-  const form = await Astro.request.formData();
-  const token = form.get('token')?.toString() ?? '';
-  const adminToken = process.env.ADMIN_TOKEN ?? '';
-  if (adminToken && token === adminToken) {
-    return new Response(null, {
-      status: 302,
-      headers: {
-        'Location': '/admin/comments',
-        'Set-Cookie': `admin_session=${token}; HttpOnly; Path=/admin; SameSite=Strict; Max-Age=86400`,
-      },
-    });
-  }
-  // Bad token — fall through to show form with error
-}
+// If already authenticated, redirect home
+if (Astro.locals.isAdmin) return Astro.redirect('/', 302);
 ---
 <!doctype html>
 <html lang="en">
@@ -26,15 +12,55 @@ if (Astro.request.method === 'POST') {
       body { font-family: system-ui; background: #fafaf8; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
       form { background: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); width: min(360px, 90vw); }
       h1 { font-size: 1.25rem; margin-bottom: 1.5rem; }
-      input { width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; margin-bottom: 1rem; }
+      label { display: block; font-size: 0.85rem; color: #555; margin-bottom: 0.25rem; }
+      input { width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; margin-bottom: 1rem; box-sizing: border-box; }
       button { width: 100%; padding: 0.6rem; background: #2563eb; color: #fff; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; font-weight: 600; }
+      button:disabled { opacity: 0.6; cursor: not-allowed; }
+      .error { color: #c00; font-size: 0.875rem; margin-bottom: 1rem; }
     </style>
   </head>
   <body>
-    <form method="POST">
+    <form id="login-form">
       <h1>Admin Login</h1>
-      <input type="password" name="token" placeholder="Admin token" required autofocus />
-      <button type="submit">Log in</button>
+      <p id="error-msg" class="error" hidden>Invalid email or password.</p>
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required autofocus autocomplete="username" />
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required autocomplete="current-password" />
+      <button type="submit" id="submit-btn">Log in</button>
     </form>
+
+    <script>
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const email = form.email.value;
+        const password = form.password.value;
+        const errorEl = document.getElementById('error-msg');
+        const submitBtn = document.getElementById('submit-btn');
+
+        errorEl.hidden = true;
+        submitBtn.disabled = true;
+
+        try {
+          const res = await fetch('/api/auth/sign-in/email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+            credentials: 'same-origin',
+          });
+
+          if (res.ok) {
+            window.location.href = '/';
+          } else {
+            errorEl.hidden = false;
+            submitBtn.disabled = false;
+          }
+        } catch {
+          errorEl.hidden = false;
+          submitBtn.disabled = false;
+        }
+      });
+    </script>
   </body>
 </html>

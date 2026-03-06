@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getDb } from '../../lib/db';
+import { auth } from '../../lib/auth';
 
 export const GET: APIRoute = ({ url }) => {
   const param = url.searchParams.get('urls');
@@ -34,6 +35,15 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!url || typeof url !== 'string' || !url.startsWith('http')) {
     return new Response(JSON.stringify({ error: 'Invalid url' }), { status: 400 });
+  }
+
+  // Admin sessions do not count toward click statistics
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (session) {
+    return new Response(JSON.stringify({ skipped: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   try {

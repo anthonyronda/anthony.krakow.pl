@@ -1,14 +1,14 @@
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? '';
+import { betterAuth } from 'better-auth';
+import Database from 'better-sqlite3';
+import path from 'path';
 
-export function validateToken(request: Request): boolean {
-  const auth = request.headers.get('Authorization') ?? '';
-  const token = auth.replace(/^Bearer\s+/i, '').trim();
-  return ADMIN_TOKEN.length > 0 && token === ADMIN_TOKEN;
-}
+const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'db.sqlite');
 
-export function validateCookie(request: Request): boolean {
-  const cookies = request.headers.get('cookie') ?? '';
-  const match = cookies.match(/admin_session=([^;]+)/);
-  if (!match) return false;
-  return match[1] === ADMIN_TOKEN;
-}
+export const auth = betterAuth({
+  secret: process.env.BETTER_AUTH_SECRET ?? 'change-me',
+  baseURL: process.env.BETTER_AUTH_URL ?? process.env.SITE_URL ?? 'http://localhost:4321',
+  database: new Database(DB_PATH),
+  emailAndPassword: {
+    enabled: true,
+  },
+});

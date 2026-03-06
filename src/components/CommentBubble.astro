@@ -5,11 +5,12 @@ interface Props {
   authorName: string;
   body: string;
   createdAt: string;
+  contextHtml?: string;
 }
 
-const { id, anchorText, authorName, body, createdAt } = Astro.props;
+const { id, anchorText, authorName, body, createdAt, contextHtml = '' } = Astro.props;
 ---
-<aside class="comment-bubble" data-comment-id={id} data-anchor={anchorText}>
+<aside class="comment-bubble" data-comment-id={id} data-anchor={anchorText} data-context-html={contextHtml}>
   <blockquote class="comment-anchor">"{anchorText}"</blockquote>
   <p class="comment-body">{body}</p>
   <footer class="comment-meta">
