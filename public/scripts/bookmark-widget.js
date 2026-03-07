@@ -78,9 +78,65 @@
     return nearest;
   }
 
-  function findMarkByText(text) {
-    const marks = document.querySelectorAll('mark.bm-highlight');
-    return Array.from(marks).find((m) => m.textContent === text) ?? null;
+  // Returns the character offset of (node, nodeOffset) within root's text content.
+  function getTextOffset(root, node, nodeOffset) {
+    if (node.nodeType !== Node.TEXT_NODE) return -1;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let total = 0;
+    let current;
+    while ((current = walker.nextNode())) {
+      if (current === node) return total + nodeOffset;
+      total += current.nodeValue.length;
+    }
+    return -1;
+  }
+
+  // Highlights the range [start, end) in root's text content across text node boundaries.
+  // Each mark part gets data-bm-text set to `text` for multi-mark lookup.
+  // Returns the first mark element, or null if nothing was found.
+  function applyMultiNodeHighlight(root, start, end, text, nearestHeader) {
+    if (start < 0 || end <= start) return null;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const parts = [];
+    let offset = 0;
+    let node;
+    while ((node = walker.nextNode())) {
+      const len = node.nodeValue.length;
+      const nodeStart = offset;
+      const nodeEnd = offset + len;
+      if (nodeEnd > start && nodeStart < end) {
+        parts.push({ node, localStart: Math.max(0, start - nodeStart), localEnd: Math.min(len, end - nodeStart) });
+      }
+      offset += len;
+      if (offset >= end) break;
+    }
+    if (parts.length === 0) return null;
+
+    let firstMark = null;
+    for (const { node: textNode, localStart, localEnd } of parts) {
+      const before = textNode.nodeValue.slice(0, localStart);
+      const highlighted = textNode.nodeValue.slice(localStart, localEnd);
+      const after = textNode.nodeValue.slice(localEnd);
+      const mark = document.createElement('mark');
+      mark.className = 'bm-highlight';
+      mark.dataset.bmText = text;
+      mark.textContent = highlighted;
+      const parent = textNode.parentNode;
+      if (before) parent.insertBefore(document.createTextNode(before), textNode);
+      parent.insertBefore(mark, textNode);
+      if (after) parent.insertBefore(document.createTextNode(after), textNode);
+      parent.removeChild(textNode);
+      attachMarkClickHandler(mark, text, nearestHeader);
+      if (!firstMark) firstMark = mark;
+    }
+    return firstMark;
+  }
+
+  // Find all mark elements belonging to a bookmark (works for both single and multi-part).
+  function findMarksByText(text) {
+    return Array.from(document.querySelectorAll('mark.bm-highlight')).filter(
+      (m) => m.dataset.bmText === text || (!m.dataset.bmText && m.textContent === text)
+    );
   }
 
   function removeMarkEl(markEl) {
@@ -88,6 +144,10 @@
     const parent = markEl.parentNode;
     while (markEl.firstChild) parent.insertBefore(markEl.firstChild, markEl);
     parent.removeChild(markEl);
+  }
+
+  function removeMarksByText(text) {
+    for (const m of findMarksByText(text)) removeMarkEl(m);
   }
 
   // ── CSS injection ─────────────────────────────────────────────────────────
@@ -173,9 +233,9 @@
     markEl.addEventListener('click', function (e) {
       e.stopPropagation();
 
-      // Toggle: if this mark's popup is already open, mousedown already hid it —
-      // just clear state so we don't reopen it on the same click.
-      if (activeBookmarkData && activeBookmarkData.markEl === markEl) {
+      // Toggle: if this bookmark's popup is already open (any part clicked again),
+      // mousedown already hid it — just clear state so we don't reopen it.
+      if (activeBookmarkData && activeBookmarkData.text === text) {
         activeBookmarkData = null;
         return;
       }
@@ -193,44 +253,34 @@
     });
   }
 
-  // Wrap selected range in an inline <mark>. Falls back to text-search if surroundContents
-  // throws (e.g. selection partially overlaps an element boundary).
+  // Wrap selected range in an inline <mark>, handling cross-element selections.
   function applyRangeHighlight(range, text, nearestHeader) {
-    const mark = document.createElement('mark');
-    mark.className = 'bm-highlight';
-    try {
-      range.surroundContents(mark);
-    } catch {
-      // Fallback: find text in .prose and wrap first occurrence
-      const prose = document.querySelector('.prose');
-      if (!prose) return null;
-      return applyTextHighlight(prose, text, nearestHeader);
+    const prose = document.querySelector('.prose');
+    if (!prose) return null;
+    const start = getTextOffset(prose, range.startContainer, range.startOffset);
+    const end = getTextOffset(prose, range.endContainer, range.endOffset);
+    if (start >= 0 && end > start) {
+      return applyMultiNodeHighlight(prose, start, end, text, nearestHeader);
     }
-    attachMarkClickHandler(mark, text, nearestHeader);
-    return mark;
+    // Fall back to text search if offset computation failed
+    return applyTextHighlight(prose, text, nearestHeader);
   }
 
   // Find the first occurrence of `text` in `root` and wrap it in a <mark>.
+  // Handles cross-element selections by stripping \n from the search text.
   function applyTextHighlight(root, text, nearestHeader) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let fullText = '';
     let node;
     while ((node = walker.nextNode())) {
-      const idx = node.nodeValue.indexOf(text);
-      if (idx === -1) continue;
-      const r = document.createRange();
-      r.setStart(node, idx);
-      r.setEnd(node, idx + text.length);
-      const mark = document.createElement('mark');
-      mark.className = 'bm-highlight';
-      try {
-        r.surroundContents(mark);
-      } catch {
-        return null; // can't highlight (e.g. crosses element boundary)
-      }
-      attachMarkClickHandler(mark, text, nearestHeader);
-      return mark;
+      nodes.push({ node, nodeStart: fullText.length });
+      fullText += node.nodeValue;
     }
-    return null;
+    const normalizedText = text.replace(/\n/g, '');
+    const idx = fullText.indexOf(normalizedText);
+    if (idx === -1) return null;
+    return applyMultiNodeHighlight(root, idx, idx + normalizedText.length, text, nearestHeader);
   }
 
   // ── Orphaned bookmarks ────────────────────────────────────────────────────
@@ -375,7 +425,7 @@
 
     if (activeBookmarkData) {
       // User opened popup by clicking an existing highlight, then clicked bookmark to remove
-      removeMarkEl(activeBookmarkData.markEl);
+      removeMarksByText(activeBookmarkData.text);
       BookmarkManager.remove(slug, activeBookmarkData.text);
       activeBookmarkData = null;
       cw?.hidePopup();
@@ -393,8 +443,7 @@
     const nearestHeader = findNearestHeader(selectionData.range.startContainer, headings)?.textContent?.trim() ?? '';
 
     if (BookmarkManager.isBookmarked(slug, text)) {
-      const markEl = findMarkByText(text);
-      if (markEl) removeMarkEl(markEl);
+      removeMarksByText(text);
       BookmarkManager.remove(slug, text);
     } else {
       applyRangeHighlight(selectionData.range, text, nearestHeader);

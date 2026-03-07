@@ -3,6 +3,14 @@
 
   const locale = document.documentElement.lang || "en";
 
+  const _dateIntlLocale = document.documentElement.dataset.dateIntlLocale || "en-GB";
+  const _dateOptions = JSON.parse(document.documentElement.dataset.dateOptions || "{}");
+  const _dateSuffix = document.documentElement.dataset.dateSuffix || "";
+
+  function formatDate(date) {
+    return date.toLocaleDateString(_dateIntlLocale, _dateOptions) + _dateSuffix;
+  }
+
   const i18n = {
     en: {
       leaveComment: "Leave a comment",
@@ -163,7 +171,7 @@
       const authorName = authorEl ? authorEl.textContent : "";
       const bodyText = bodyEl ? bodyEl.textContent : "";
       const dateStr = timeEl
-        ? new Date(timeEl.getAttribute("datetime") || "").toLocaleDateString()
+        ? formatDate(new Date(timeEl.getAttribute("datetime") || ""))
         : "";
 
       // Safely extract plain text from the stored context HTML
@@ -213,18 +221,46 @@
   }
 
   function highlightTextInElement(root, text) {
+    // Build the concatenated text content from all text nodes.
+    // Cross-element selections produce text with \n between elements (from
+    // getSelection().toString()), but text nodes themselves have no such separators.
+    // Stripping \n from the search text lets us locate it in the concatenated content.
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let fullText = "";
     let node;
     while ((node = walker.nextNode())) {
-      const idx = node.nodeValue.indexOf(text);
-      if (idx === -1) continue;
-      const range = document.createRange();
-      range.setStart(node, idx);
-      range.setEnd(node, idx + text.length);
+      nodes.push({ node, nodeStart: fullText.length });
+      fullText += node.nodeValue;
+    }
+
+    const normalizedText = text.replace(/\n/g, "");
+    const idx = fullText.indexOf(normalizedText);
+    if (idx === -1) return;
+
+    const start = idx;
+    const end = idx + normalizedText.length;
+
+    for (const { node: textNode, nodeStart } of nodes) {
+      const nodeEnd = nodeStart + textNode.nodeValue.length;
+      if (nodeEnd <= start || nodeStart >= end) continue;
+
+      const localStart = Math.max(0, start - nodeStart);
+      const localEnd = Math.min(textNode.nodeValue.length, end - nodeStart);
+      const before = textNode.nodeValue.slice(0, localStart);
+      const highlighted = textNode.nodeValue.slice(localStart, localEnd);
+      const after = textNode.nodeValue.slice(localEnd);
+
       const mark = document.createElement("mark");
       mark.style.cssText = "background:#fff3b0;border-radius:2px;";
-      range.surroundContents(mark);
-      break; // highlight first occurrence only
+      mark.textContent = highlighted;
+
+      const parent = textNode.parentNode;
+      if (before)
+        parent.insertBefore(document.createTextNode(before), textNode);
+      parent.insertBefore(mark, textNode);
+      if (after) parent.insertBefore(document.createTextNode(after), textNode);
+      parent.removeChild(textNode);
     }
   }
 
@@ -272,6 +308,20 @@
     selectionData = null;
   }
 
+  // Returns the character offset of (node, nodeOffset) within root's text content,
+  // by walking text nodes in order. Works correctly for cross-element selections.
+  function getTextOffset(root, node, nodeOffset) {
+    if (node.nodeType !== Node.TEXT_NODE) return -1;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let total = 0;
+    let current;
+    while ((current = walker.nextNode())) {
+      if (current === node) return total + nodeOffset;
+      total += current.nodeValue.length;
+    }
+    return -1;
+  }
+
   document.addEventListener("mouseup", (e) => {
     const article = document.getElementById("article-content");
     if (!article) return;
@@ -294,10 +344,15 @@
 
       createTooltip();
 
-      // Compute character offsets relative to article text content
-      const articleText = article.textContent || "";
-      const start = articleText.indexOf(text);
-      const end = start >= 0 ? start + text.length : -1;
+      // Compute character offsets via TreeWalker so cross-element selections work.
+      // article.textContent.indexOf(text) fails for multi-element selections because
+      // getSelection().toString() inserts \n at element boundaries but textContent does not.
+      const start = getTextOffset(
+        article,
+        range.startContainer,
+        range.startOffset,
+      );
+      const end = getTextOffset(article, range.endContainer, range.endOffset);
 
       selectionData = {
         text,

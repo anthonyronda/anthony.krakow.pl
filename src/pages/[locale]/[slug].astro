@@ -3,7 +3,7 @@ import { getCollection, getEntry } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import CommentBubble from '../../components/CommentBubble.astro';
 import InlineComments from '../../components/InlineComments.astro';
-import { t, locales } from '../../i18n/utils';
+import { t, locales, formatDate } from '../../i18n/utils';
 import { getDb } from '../../lib/db';
 import type { Locale } from '../../i18n/utils';
 
@@ -81,7 +81,7 @@ try {
     <header style="margin-bottom:1.5rem;">
       <h1>{entry.data.title}</h1>
       <p class="muted">
-        {t('note.publishedOn', locale)} {entry.data.pubDate.toLocaleDateString()}
+        {t('note.publishedOn', locale)} {formatDate(entry.data.pubDate, locale)}
         {readingTime && <span> · {readingTime} {t('note.readingTime', locale)}</span>}
       </p>
       {entry.data.tags.length > 0 && (
@@ -109,6 +109,7 @@ try {
           body={c.body}
           createdAt={c.created_at}
           contextHtml={c.context_html}
+          locale={locale}
         />
       ))}
     </section>

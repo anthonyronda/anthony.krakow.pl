@@ -1,4 +1,6 @@
 ---
+import { formatDate } from '../i18n/utils';
+
 interface Props {
   id: number;
   anchorText: string;
@@ -6,16 +8,17 @@ interface Props {
   body: string;
   createdAt: string;
   contextHtml?: string;
+  locale: string;
 }
 
-const { id, anchorText, authorName, body, createdAt, contextHtml = '' } = Astro.props;
+const { id, anchorText, authorName, body, createdAt, contextHtml = '', locale } = Astro.props;
 ---
 <aside class="comment-bubble" data-comment-id={id} data-anchor={anchorText} data-context-html={contextHtml}>
   <blockquote class="comment-anchor">"{anchorText}"</blockquote>
   <p class="comment-body">{body}</p>
   <footer class="comment-meta">
     <strong>{authorName}</strong>
-    <time datetime={createdAt}>{new Date(createdAt).toLocaleDateString()}</time>
+    <time datetime={createdAt}>{formatDate(new Date(createdAt), locale)}</time>
   </footer>
 </aside>
 

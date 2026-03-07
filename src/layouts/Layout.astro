@@ -1,5 +1,5 @@
 ---
-import { t } from '../i18n/utils';
+import { t, dateFormats } from '../i18n/utils';
 import { getEntry } from 'astro:content';
 import type { Locale } from '../i18n/utils';
 
@@ -22,9 +22,10 @@ const altHref = altExists ? `/${altLocale}/${slug}` : `/${altLocale}`;
 
 const pageTitle = title ? `${title} — ${t('site.title', locale)}` : t('site.title', locale);
 const pageDesc = description ?? t('site.description', locale);
+const dateFmt = dateFormats[locale] ?? dateFormats['en'];
 ---
 <!doctype html>
-<html lang={locale}>
+<html lang={locale} data-date-intl-locale={dateFmt.intlLocale} data-date-options={JSON.stringify(dateFmt.options)} data-date-suffix={dateFmt.suffix}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

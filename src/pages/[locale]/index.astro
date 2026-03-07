@@ -1,7 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
-import { t, locales } from '../../i18n/utils';
+import { t, locales, formatDate } from '../../i18n/utils';
 import type { Locale } from '../../i18n/utils';
 
 export function getStaticPaths() {
@@ -23,7 +23,7 @@ const notes = (await getCollection(locale))
       {notes.map((note) => (
         <li>
           <a href={`/${locale}/${note.slug}`}>{note.data.title}</a>
-          <span class="muted"> — {note.data.pubDate.toLocaleDateString()}</span>
+          <span class="muted"> — {formatDate(note.data.pubDate, locale)}</span>
           {note.data.tags.length > 0 && (
             <span>
               {note.data.tags.map((tag) => (
