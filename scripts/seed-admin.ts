@@ -11,7 +11,12 @@
  *   BETTER_AUTH_SECRET — must match the value used by the running server
  */
 
+import { getDb } from '../src/lib/db.ts';
 import { auth } from '../src/lib/auth.ts';
+
+// Initialize the schema (creates user/session/account/verification tables if they don't exist)
+// before better-auth tries to insert into them.
+getDb();
 
 const email = process.env.ADMIN_EMAIL;
 const password = process.env.ADMIN_PASSWORD;
