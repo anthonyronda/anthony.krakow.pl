@@ -263,16 +263,10 @@ const { comments, slug, locale } = Astro.props;
       meta.className = 'ic-meta';
       meta.textContent = comment.author_name;
 
-      // Show plain-text excerpt from context_html up to the end of the anchor text,
-      // falling back to anchor_text for legacy comments without context_html.
-      const contextText = comment.context_html
-        ? stripTags(comment.context_html).trim()
+      // Show just the highlighted text (anchor_text), capped at 150 chars.
+      const display = comment.anchor_text.length > 150
+        ? comment.anchor_text.slice(0, 150) + '…'
         : comment.anchor_text;
-      const anchorEnd = contextText.indexOf(comment.anchor_text);
-      const truncated = anchorEnd !== -1
-        ? contextText.slice(0, anchorEnd + comment.anchor_text.length)
-        : contextText;
-      const display = truncated.length > 150 ? truncated.slice(0, 150) + '…' : truncated;
       const anchor = document.createElement('div');
       anchor.className = 'ic-anchor';
       anchor.textContent = `"${display}"`;
